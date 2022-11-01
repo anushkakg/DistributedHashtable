@@ -1,82 +1,94 @@
-import java.util.*;
-import java.io.*;
-import java.net.*;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
+import java.util.Scanner;
 
 public class DHTServer {
-    class ClientThread extends Thread {
-        private Socket socket;
-        private String name;
-		private DHTServer dhtServer;
-        public ClientThread(DHTServer dhtServer, Socket clientSocket, String clientName) {
-            this.socket = clientSocket;
-            this.name = clientName;
-			this.dhtServer = dhtServer;
-        }
-        public void run() {
-        	try {
-        		//read from socket to ObjectInputStream object
-                ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
-        		//create ObjectOutputStream object
-                ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
-        		while (true) {
-                	
-                	//convert ObjectInputStream object to String
-                	Object object = ois.readObject();
-                    if (object.getClass() == MsgGetRequest.class) {
-						MsgGetRequest msgGetRequest = (MsgGetRequest) object;
-						String value = dhtServer.getHashtable().get(msgGetRequest.key);
-						MsgGetResponse msgGetResponse = new MsgGetResponse(value);
-						oos.writeObject(msgGetResponse);
-                    } else if (object.getClass() == MsgPutRequest.class) {
-						MsgPutRequest msgPutRequest = (MsgPutRequest) object;
-						dhtServer.getHashtable().put(msgPutRequest.key, msgPutRequest.value);
-						MsgPutResponse msgPutResponse = new MsgPutResponse();
-						oos.writeObject(msgPutResponse);
-                    } else if (object.getClass() == MsgExitRequest.class) {
-                        System.out.println(name + " shutting down socket");
-                    	break;
-                    } else {
-						System.out.println("invalid message on the socket");
-						break;
-					}
-            	}
-            	//close resources
-                ois.close();
-                oos.close();
-            	socket.close();
-        	} 
-        	catch (IOException | ClassNotFoundException ex) {
-        		System.out.println(ex.toString());
-        	}
-        }
-    }
+	private static DHTServerNode dhtServerNode;
+	private static InetSocketAddress contactAddress;
+	private static DHTUtil dhtUtil;
+
+	public static void main (String[] args) {
+		
+		dhtUtil = new DHTUtil();
+		
+		// get local machine's ip 
+		String local_ip = null;
+		try {
+			local_ip = InetAddress.getLocalHost().getHostAddress();
+
+		} catch (UnknownHostException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		
+		// create node
+		dhtServerNode = new DHTServerNode(DHTUtil.createSocketAddress(local_ip+":"+args[0]));
+		
+		// determine if it's creating or joining a existing ring
+		// create, contact is this node itself
+		if (args.length == 1) {
+			contactAddress = dhtServerNode.getAddress();
+		}
+		
+		// join, contact is another node
+		else if (args.length == 3) {
+			contactAddress = DHTUtil.createSocketAddress(args[1]+":"+args[2]);
+			if (contactAddress == null) {
+				System.out.println("Cannot find address you are trying to contact. Now exit.");
+				return;
+			}	
+		}
+		
+		else {
+			System.out.println("Wrong input. Now exit.");
+			System.exit(0);
+		}
+		
+		/* try to join ring from contact node
+		boolean successful_join = dhtServerNode.join(contactAddress);
+		
+		// fail to join contact node
+		if (!successful_join) {
+			System.out.println("Cannot connect with node you are trying to contact. Now exit.");
+			System.exit(0);
+		}
+		
+		// print join info
+		System.out.println("Joining the Chord ring.");
+		System.out.println("Local IP: "+local_ip);
+		dhtServerNode.printNeighbors();
+		*/
+		
+		// begin to take user input, "info" or "quit"
+		Scanner userinput = new Scanner(System.in);
+		while(true) {
+			System.out.println("\nType \"info\" to check this node's data or \n type \"quit\"to leave ring: ");
+			String command = null;
+			command = userinput.next();
+			if (command.startsWith("quit")) {
+				dhtServerNode.stopAllThreads();
+				System.out.println("Leaving the ring...");
+				System.exit(0);
+				
+			}
+			else if (command.startsWith("info")) {
+				dhtServerNode.printDataStructure();
+			}
+		}
+	}
+
+	/*
+
 
     //static ServerSocket variable
     public ServerSocket serverSocket;
     //socket server port on which it will listen
     private int port;
-	private Hashtable<String, String> ht;
-    public DHTServer() {
-    	try {
-    		port = 9876;
-        	serverSocket = new ServerSocket(port);
-			ht = new Hashtable<String, String>();
-    	}
-        catch (IOException ex){
-        	System.out.println(ex.toString());
-        }
-    }
-    
-    public void createClientThread(Socket clientSocket, String clientName) {
-    	ClientThread clientThread = new ClientThread(this, clientSocket, clientName);
-    	clientThread.start();
-    }
-
-	public Hashtable<String, String> getHashtable() {
-		return this.ht;
-	}
 
     public static void main(String[] args) {
+
+		
         try {
         	DHTServer dhtServer = new DHTServer();
         	//create the socket server object
@@ -102,6 +114,7 @@ public class DHTServer {
         catch (IOException ex) {
         	System.out.println(ex.toString());
         }
+		
     }
-    
+    */
 }
